@@ -42,6 +42,15 @@ const BookingSchema = new mongoose.Schema({
         ref: 'Campground',
         required: true
     },
+    // ── Status ─────────────────────────────────────────
+    checkInStatus: {
+        type: Boolean,
+        default: false
+    },
+    checkOutStatus: {
+        type: Boolean,
+        default: false
+    },
     createdAt: {
         type: Date,
         default: Date.now

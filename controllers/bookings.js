@@ -249,3 +249,124 @@ exports.deleteBooking = async (req, res) => {
         res.status(500).json({ success: false, message: 'Cannot delete booking' });
     }
 };
+
+//@desc     Check-in booking
+//@route    PUT /api/v1/bookings/:id/checkin
+//@access   Private (campOwner)
+exports.checkInBooking = async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: `No booking with id ${req.params.id}`
+            });
+        }
+
+        const camp = await Campground.findById(booking.campground);
+
+        const isCampOwner = camp && camp.owner.toString() === req.user.id;
+
+        // ไม่ใช่เจ้าของ camp 
+        if (!isCampOwner) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to check-in this booking'
+            });
+        }
+
+        // ถ้า check-in ไปแล้ว
+        if (booking.checkInStatus) {
+            return res.status(400).json({
+                success: false,
+                message: 'This booking is already checked in'
+            });
+        }
+
+        // ทำการ check-in
+        booking.checkInStatus = true;
+        await booking.save();
+
+        res.status(200).json({
+            success: true,
+            data: booking
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            message: 'Cannot check-in booking'
+        });
+    }
+};
+
+//@desc     Check-out booking
+//@route    PUT /api/v1/bookings/:id/checkout
+//@access   Private (campOwner)
+exports.checkOutBooking = async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: `No booking with id ${req.params.id}`
+            });
+        }
+
+        const camp = await Campground.findById(booking.campground);
+
+        const isCampOwner = camp && camp.owner.toString() === req.user.id;
+
+        // ไม่มีสิทธิ์
+        if (!isCampOwner) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to check-out this booking'
+            });
+        }
+
+        // ยังไม่ได้ check-in
+        if (!booking.checkInStatus) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot check-out before check-in'
+            });
+        }
+
+        // check-out ไปแล้ว
+        if (booking.checkOutStatus) {
+            return res.status(400).json({
+                success: false,
+                message: 'This booking is already checked out'
+            });
+        }
+
+        // optional: กัน check-out ก่อนวันจริง
+        const today = new Date();
+        if (today < booking.checkInDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot check-out before stay starts'
+            });
+        }
+
+        // ทำการ check-out
+        booking.checkOutStatus = true;
+        await booking.save();
+
+        res.status(200).json({
+            success: true,
+            data: booking
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            message: 'Cannot check-out booking'
+        });
+    }
+};

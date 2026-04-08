@@ -47,7 +47,6 @@ app.use(cors());
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/campgrounds', campgrounds);
 app.use('/api/v1/bookings', bookings);
-app.use('/api/v1/campgrounds/:campgroundId/bookings', bookings);
 
 const PORT = process.env.PORT || 5000;
 

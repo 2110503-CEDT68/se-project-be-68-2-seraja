@@ -6,6 +6,9 @@ const {
   updateCampground,
   deleteCampground
 } = require('../controllers/campgrounds');
+const {
+ addBooking
+} = require('../controllers/bookings')
 
 const { protect, authorize } = require('../middleware/auth');
 
@@ -22,4 +25,5 @@ router
   .put(protect, authorize('admin','campOwner'), updateCampground)
   .delete(protect, authorize('admin'), deleteCampground);
 
+router.route('/:campgroundId/bookings').post(protect, authorize('admin', 'user', 'campOwner'), addBooking);
 module.exports = router;
