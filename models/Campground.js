@@ -33,6 +33,12 @@ const CampgroundSchema = new mongoose.Schema({
         type: String,
         required: [true,'Please add a region']
     },
+    capacity: {
+        type: Number,
+        required: true,
+        default: 5,
+        min: 1
+    },
     owner: {
         type: mongoose.Schema.ObjectId,
         ref: 'User',

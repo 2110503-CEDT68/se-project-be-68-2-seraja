@@ -18,15 +18,51 @@ function validateDates(checkInDate, checkOutDate) {
     return { newIn, newOut, nights };
 }
 
-// ── Helper: check date overlap ────────────────────────────────────────────
-async function checkOverlap(campgroundId, newIn, newOut, excludeId = null) {
-    const query = {
-        campground: campgroundId,
-        checkInDate:  { $lt: newOut },
-        checkOutDate: { $gt: newIn  }
-    };
-    if (excludeId) query._id = { $ne: excludeId };
-    return await Booking.findOne(query);
+// ── Helper: generate date range (excluding checkout date) ──────────────────
+function generateDateRange(checkInDate, checkOutDate) {
+    const dates = [];
+    const start = new Date(checkInDate);
+    const end = new Date(checkOutDate);
+
+    // Set time to start of day for consistent comparison
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    const current = new Date(start);
+    while (current < end) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+    }
+
+    return dates;
+}
+
+// ── Helper: check capacity for date range ──────────────────────────────────
+async function checkCapacity(campgroundId, checkInDate, checkOutDate, excludeId = null) {
+    const campground = await Campground.findById(campgroundId);
+    if (!campground) throw new Error('Campground not found');
+
+    const dates = generateDateRange(checkInDate, checkOutDate);
+
+    for (const date of dates) {
+        const nextDay = new Date(date);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        const query = {
+            campground: campgroundId,
+            checkInDate: { $lt: nextDay },
+            checkOutDate: { $gt: date }
+        };
+
+        if (excludeId) query._id = { $ne: excludeId };
+
+        const count = await Booking.countDocuments(query);
+        if (count >= campground.capacity) {
+            return { exceeded: true, date: date.toISOString().split('T')[0] };
+        }
+    }
+
+    return { exceeded: false };
 }
 
 //@desc     Get bookings
@@ -34,29 +70,70 @@ async function checkOverlap(campgroundId, newIn, newOut, excludeId = null) {
 //@access   Private
 exports.getBookings = async (req, res) => {
     try {
-        let query;
+        let baseQuery;
 
+        //กำหนด scope 
         if (req.user.role === 'admin') {
-            // Admin sees ALL bookings
-            query = Booking.find().populate(POPULATE);
+            baseQuery = {};
 
         } else if (req.user.role === 'campOwner') {
-            // CampOwner sees bookings for their own campgrounds
             const owned = await Campground.find({ owner: req.user.id }).select('_id');
             const ids   = owned.map(c => c._id);
-            query = Booking.find({ campground: { $in: ids } }).populate(POPULATE);
+            baseQuery = { campground: { $in: ids } };
 
         } else {
-            // Regular user sees only their own bookings
-            query = Booking.find({ user: req.user.id }).populate(POPULATE);
+            baseQuery = { user: req.user.id };
         }
 
-        const bookings = await query.sort({ checkInDate: 1 });
+        //copy query params
+        let reqQuery = { ...req.query };
 
-        res.status(200).json({ success: true, count: bookings.length, data: bookings });
+        //fields ที่ไม่ใช้ filter
+        const removeFields = ['select', 'sort', 'page', 'limit'];
+        removeFields.forEach(param => delete reqQuery[param]);
+
+        //แปลง operator เป็น Mongo
+        let queryStr = JSON.stringify(reqQuery);
+        queryStr = queryStr.replace(/\b(gte|gt|lte|lt|in)\b/g, match => `$${match}`);
+
+        const mongoQuery = JSON.parse(queryStr);
+
+        //รวม baseQuery + filter จาก URL
+        const finalQuery = {
+            ...baseQuery,
+            ...mongoQuery
+        };
+
+        let query = Booking.find(finalQuery).populate(POPULATE);
+
+        //sort
+        if (req.query.sort) {
+            const sortBy = req.query.sort.split(',').join(' ');
+            query = query.sort(sortBy);
+        } else {
+            query = query.sort('checkInDate');
+        }
+
+        //select
+        if (req.query.select) {
+            const fields = req.query.select.split(',').join(' ');
+            query = query.select(fields);
+        }
+
+        const bookings = await query;
+
+        res.status(200).json({
+            success: true,
+            count: bookings.length,
+            data: bookings
+        });
+
     } catch (err) {
         console.error(err);
-        res.status(500).json({ success: false, message: 'Cannot find bookings' });
+        res.status(500).json({
+            success: false,
+            message: 'Cannot find bookings'
+        });
     }
 };
 
@@ -171,9 +248,14 @@ exports.addBooking = async (req, res) => {
         const dateResult = validateDates(checkInDate, checkOutDate);
         if (dateResult.error) return res.status(400).json({ success: false, message: dateResult.error });
 
-        // Check overlap
-        const overlap = await checkOverlap(req.params.campgroundId, dateResult.newIn, dateResult.newOut);
-        if (overlap) return res.status(400).json({ success: false, message: 'These dates overlap an existing booking' });
+        // Check capacity
+        const capacityCheck = await checkCapacity(req.params.campgroundId, dateResult.newIn, dateResult.newOut);
+        if (capacityCheck.exceeded) {
+            return res.status(400).json({
+                success: false,
+                message: `Campground is fully booked for selected dates (capacity exceeded on ${capacityCheck.date})`
+            });
+        }
 
         req.body.nightsCount = dateResult.nights;
         const booking = await Booking.create(req.body);
@@ -210,8 +292,13 @@ exports.updateBooking = async (req, res) => {
             const dateResult = validateDates(checkInDate, checkOutDate);
             if (dateResult.error) return res.status(400).json({ success: false, message: dateResult.error });
 
-            const overlap = await checkOverlap(booking.campground, dateResult.newIn, dateResult.newOut, booking._id);
-            if (overlap) return res.status(400).json({ success: false, message: 'Updated dates overlap an existing booking' });
+            const capacityCheck = await checkCapacity(booking.campground, dateResult.newIn, dateResult.newOut, booking._id);
+            if (capacityCheck.exceeded) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Updated dates exceed campground capacity (capacity exceeded on ${capacityCheck.date})`
+                });
+            }
         } else if (checkInDate || checkOutDate) {
             return res.status(400).json({ success: false, message: 'Both checkInDate and checkOutDate required when updating dates' });
         }
@@ -277,7 +364,7 @@ exports.checkInBooking = async (req, res) => {
         }
 
         // ถ้า check-in ไปแล้ว
-        if (booking.checkInStatus) {
+        if (booking.actualCheckIn) {
             return res.status(400).json({
                 success: false,
                 message: 'This booking is already checked in'
@@ -285,7 +372,8 @@ exports.checkInBooking = async (req, res) => {
         }
 
         // ทำการ check-in
-        booking.checkInStatus = true;
+        booking.actualCheckIn = new Date();
+        booking.status = 'checked-in';
         await booking.save();
 
         res.status(200).json({
@@ -329,7 +417,7 @@ exports.checkOutBooking = async (req, res) => {
         }
 
         // ยังไม่ได้ check-in
-        if (!booking.checkInStatus) {
+        if (!booking.actualCheckIn) {
             return res.status(400).json({
                 success: false,
                 message: 'Cannot check-out before check-in'
@@ -337,7 +425,7 @@ exports.checkOutBooking = async (req, res) => {
         }
 
         // check-out ไปแล้ว
-        if (booking.checkOutStatus) {
+        if (booking.actualCheckOut) {
             return res.status(400).json({
                 success: false,
                 message: 'This booking is already checked out'
@@ -354,7 +442,8 @@ exports.checkOutBooking = async (req, res) => {
         }
 
         // ทำการ check-out
-        booking.checkOutStatus = true;
+        booking.actualCheckOut = new Date();
+        booking.status = 'checked-out';
         await booking.save();
 
         res.status(200).json({

@@ -11,6 +11,12 @@ const BookingSchema = new mongoose.Schema({
         type: Date,
         required: [true, 'Please provide check-out date']
     },
+    actualCheckIn: {
+        type: Date
+    },
+    actualCheckOut: {
+        type: Date
+    },
     nightsCount: {
         type: Number,
         min: [1, 'Minimum nights is 1'],
@@ -43,13 +49,10 @@ const BookingSchema = new mongoose.Schema({
         required: true
     },
     // ── Status ─────────────────────────────────────────
-    checkInStatus: {
-        type: Boolean,
-        default: false
-    },
-    checkOutStatus: {
-        type: Boolean,
-        default: false
+    status: {
+        type: String,
+        enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled'],
+        default: 'confirmed'
     },
     createdAt: {
         type: Date,
