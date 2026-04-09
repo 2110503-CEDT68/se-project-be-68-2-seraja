@@ -363,6 +363,19 @@ exports.checkInBooking = async (req, res) => {
             });
         }
 
+        const checkedInCount = await Booking.countDocuments({
+            campground: booking.campground,
+            status: 'checked-in'
+        });
+
+        // ถ้าเต็มแล้ว (>= 5)
+        if (checkedInCount >= 5) {
+            return res.status(400).json({
+                success: false,
+                message: 'This campground has reached the maximum check-in limit (5)'
+            });
+        }
+
         // ถ้า check-in ไปแล้ว
         if (booking.actualCheckIn) {
             return res.status(400).json({
