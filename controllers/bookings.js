@@ -1,10 +1,16 @@
 const Booking = require('../models/Booking');
 const Campground = require('../models/Campground');
 
-const POPULATE = {
-    path: 'campground',
-    select: 'name address tel district province picture'
-};
+const POPULATE = [
+    {
+        path: 'campground',
+        select: 'name address tel district province picture'
+    },
+    {
+        path: 'user',
+        select: 'name tel email'
+    }
+];
 
 // ── Helper: validate & calculate nights ───────────────────────────────────
 function validateDates(checkInDate, checkOutDate) {
@@ -50,6 +56,7 @@ async function checkCapacity(campgroundId, checkInDate, checkOutDate, excludeId 
 
         const query = {
             campground: campgroundId,
+            status: { $ne: 'cancelled' },
             checkInDate: { $lt: nextDay },
             checkOutDate: { $gt: date }
         };
@@ -286,6 +293,11 @@ exports.updateBooking = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Not authorized to update this booking' });
         }
 
+        // ป้องกันการแก้ไขถ้าเช็คอินไปแล้ว
+        if (booking.status === 'checked-in') {
+            return res.status(400).json({ success: false, message: 'Cannot update a booking that is already checked in' });
+        }
+
         // Validate dates if provided
         const { checkInDate, checkOutDate } = req.body;
         if (checkInDate && checkOutDate) {
@@ -330,6 +342,11 @@ exports.deleteBooking = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Not authorized to delete this booking' });
         }
 
+        // ป้องกันการลบถ้ากำลังเช็คอินอยู่
+        if (booking.status === 'checked-in') {
+            return res.status(400).json({ success: false, message: 'Cannot delete a booking that is already checked in' });
+        }
+
         await booking.deleteOne();
         res.status(200).json({ success: true, data: {} });
     } catch (err) {
@@ -363,6 +380,14 @@ exports.checkInBooking = async (req, res) => {
             });
         }
 
+        // ถ้าจองถูกยกเลิกไปแล้ว                                                                                                                                                              
+        if (booking.status === 'cancelled') {                                                                                                                                             
+            return res.status(400).json({                                                                                                                                                 
+               success: false,                                                                                                                                                           
+               message: 'Cannot check-in a cancelled booking'                                                                                                                            
+            });                                                                                                                                                                           
+        }     
+
         const checkedInCount = await Booking.countDocuments({
             campground: booking.campground,
             status: 'checked-in'
@@ -381,6 +406,15 @@ exports.checkInBooking = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'This booking is already checked in'
+            });
+        }
+
+        //check in ก่อนถึงวันที่ book ไว้
+        const today = new Date();
+        if (today < booking.checkInDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot check-in before your reservation date'
             });
         }
 
