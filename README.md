@@ -110,6 +110,9 @@ npm run dev
 
 # Production
 npm start
+
+# Format code with Prettier
+npm run format
 ```
 
 Server runs on `http://localhost:5000` by default.
