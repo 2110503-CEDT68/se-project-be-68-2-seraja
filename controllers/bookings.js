@@ -12,6 +12,40 @@ const POPULATE = [
     }
 ];
 
+// ── Helper: auto-update stale bookings ────────────────────────────────────
+async function autoUpdateBookingStatuses() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // 1. Auto-cancel No-shows (Confirmed bookings past their check-in date)
+    await Booking.updateMany(
+        {
+            status: 'confirmed',
+            checkInDate: { $lt: today }
+        },
+        {
+            $set: {
+                status: 'cancelled',
+                cancelledAt: now
+            }
+        }
+    );
+
+    // 2. Auto-check-out (Checked-in bookings past their check-out date)
+    await Booking.updateMany(
+        {
+            status: 'checked-in',
+            checkOutDate: { $lt: today }
+        },
+        {
+            $set: {
+                status: 'checked-out',
+                actualCheckOut: now
+            }
+        }
+    );
+}
+
 // ── Helper: validate & calculate nights ───────────────────────────────────
 function validateDates(checkInDate, checkOutDate) {
     const newIn  = new Date(checkInDate);
@@ -77,6 +111,9 @@ async function checkCapacity(campgroundId, checkInDate, checkOutDate, excludeId 
 //@access   Private
 exports.getBookings = async (req, res) => {
     try {
+        // อัปเดตสถานะอัตโนมัติก่อนดึงข้อมูล
+        await autoUpdateBookingStatuses();
+
         let baseQuery;
 
         //กำหนด scope 
@@ -198,6 +235,9 @@ exports.exportBookings = async (req, res) => {
 //@access   Private
 exports.getBooking = async (req, res) => {
     try {
+        // อัปเดตสถานะอัตโนมัติก่อนดึงข้อมูล
+        await autoUpdateBookingStatuses();
+
         const booking = await Booking.findById(req.params.id).populate(POPULATE);
         if (!booking) return res.status(404).json({ success: false, message: `No booking with id ${req.params.id}` });
 
@@ -220,6 +260,9 @@ exports.getBooking = async (req, res) => {
 //@access   Private
 exports.addBooking = async (req, res) => {
     try {
+        // อัปเดตสถานะอัตโนมัติเพื่อให้การเช็คพื้นที่ว่างแม่นยำ
+        await autoUpdateBookingStatuses();
+
         req.body.campground = req.params.campgroundId;
         delete req.body.nightsCount;
 
@@ -293,9 +336,12 @@ exports.updateBooking = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Not authorized to update this booking' });
         }
 
-        // ป้องกันการแก้ไขถ้าเช็คอินไปแล้ว
-        if (booking.status === 'checked-in') {
-            return res.status(400).json({ success: false, message: 'Cannot update a booking that is already checked in' });
+        // ป้องกันการแก้ไขถ้าเช็คอินไปแล้ว หรือจบการจองแล้ว หรือยกเลิกไปแล้ว
+        if (['checked-in', 'checked-out', 'cancelled'].includes(booking.status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Cannot update a booking that is ${booking.status}` 
+            });
         }
 
         // Validate dates if provided
@@ -342,9 +388,12 @@ exports.deleteBooking = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Not authorized to delete this booking' });
         }
 
-        // ป้องกันการลบถ้ากำลังเช็คอินอยู่
-        if (booking.status === 'checked-in') {
-            return res.status(400).json({ success: false, message: 'Cannot delete a booking that is already checked in' });
+        // ป้องกันการลบถ้าเช็คอินไปแล้ว หรือจบการจองแล้ว หรือยกเลิกไปแล้ว (เพื่อเก็บประวัติ)
+        if (['checked-in', 'checked-out', 'cancelled'].includes(booking.status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Cannot delete a booking that is ${booking.status}` 
+            });
         }
 
         await booking.deleteOne();
@@ -393,11 +442,11 @@ exports.checkInBooking = async (req, res) => {
             status: 'checked-in'
         });
 
-        // ถ้าเต็มแล้ว (>= 5)
-        if (checkedInCount >= 5) {
+        // ถ้าเต็มแล้ว
+        if (checkedInCount >= camp.capacity) {
             return res.status(400).json({
                 success: false,
-                message: 'This campground has reached the maximum check-in limit (5)'
+                message: `This campground has reached the maximum check-in limit (${camp.capacity})`
             });
         }
 
@@ -409,12 +458,27 @@ exports.checkInBooking = async (req, res) => {
             });
         }
 
-        //check in ก่อนถึงวันที่ book ไว้
-        const today = new Date();
-        if (today < booking.checkInDate) {
+        // อนุญาตให้ Check-in เฉพาะวันที่กำหนดเท่านั้น (เปรียบเทียบเฉพาะ วัน/เดือน/ปี)
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const scheduledDate = new Date(booking.checkInDate);
+        scheduledDate.setHours(0, 0, 0, 0);
+
+        if (today < scheduledDate) {
             return res.status(400).json({
                 success: false,
                 message: 'Cannot check-in before your reservation date'
+            });
+        }
+
+        if (today > scheduledDate) {
+            // ถ้าเลยวันเช็คอินไปแล้ว ให้ยกเลิกการจองทันที (No-show)
+            booking.status = 'cancelled';
+            booking.cancelledAt = new Date();
+            await booking.save();
+            return res.status(400).json({
+                success: false,
+                message: 'The check-in date has passed. This booking has been automatically cancelled.'
             });
         }
 
@@ -476,15 +540,6 @@ exports.checkOutBooking = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'This booking is already checked out'
-            });
-        }
-
-        // optional: กัน check-out ก่อนวันจริง
-        const today = new Date();
-        if (today < booking.checkInDate) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot check-out before stay starts'
             });
         }
 
