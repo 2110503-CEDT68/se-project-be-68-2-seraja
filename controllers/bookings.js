@@ -39,7 +39,7 @@ async function autoUpdateBookingStatuses() {
         },
         {
             $set: {
-                status: 'checked-out',
+                status: 'cancelled',
                 actualCheckOut: now
             }
         }
