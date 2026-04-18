@@ -51,7 +51,7 @@ const BookingSchema = new mongoose.Schema({
     // ── Status ─────────────────────────────────────────
     status: {
         type: String,
-        enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled'],
+        enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled','reviewed','can-not-review'],
         default: 'confirmed'
     },
     cancelledAt: {
@@ -60,6 +60,17 @@ const BookingSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    review_rating: {
+        type: Number,
+        default: null
+    },
+    review_comment: {
+        type: String,
+        default: null
+    },
+    review_createdAt: {
+        type: Date,
     }
 });
 
