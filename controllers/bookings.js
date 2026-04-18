@@ -772,3 +772,92 @@ exports.getTodayCheckouts = async (req, res) => {
     });
   }
 };
+
+//@desc     Get campground reviews
+//@route    GET /api/v1/bookings/review
+//@access   Private (campOwner)
+exports.getCampgroundReview = async (req, res) => {
+  try {
+    if (req.user.role !== "campOwner") {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to access campground reviews",
+      });
+    }
+
+    // หา campground ของ owner
+    const ownedCampgrounds = await Campground.find({
+      owner: req.user._id,
+    }).select("_id");
+
+    const campgroundIds = ownedCampgrounds.map((c) => c._id);
+
+    // base query
+    let query = Booking.find({
+      campground: { $in: campgroundIds },
+      review_rating: { $ne: null },
+    }).populate([
+      {
+        path: "campground",
+        select: "name province district",
+      },
+      {
+        path: "user",
+        select: "name email",
+      },
+    ]);
+
+    //เพิ่ม sort จาก query
+    if (req.query.sort) {
+      const sortBy = req.query.sort.split(",").join(" ");
+      query = query.sort(sortBy);
+    } else {
+      // default sort
+      query = query.sort("-review_createdAt");
+    }
+
+    const reviews = await query;
+
+    // average rating
+    const avg =
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + (r.review_rating || 0), 0) /
+          reviews.length
+        : 0;
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      averageRating: Number(avg.toFixed(2)),
+      data: reviews,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Cannot fetch campground reviews",
+    });
+  }
+};
+
+//@desc     create review booking
+//@route    Put /api/v1/bookings/createReview
+//@access   Private (User)
+exports.createReview = async (req, res) => {
+  //ให้ user ที่มีstatus check out เพิ่ม review เข้า booking เเล้วเปลี่ยน status เป็น reviewed
+  //(ที่ใช่เป็นput เพราะเรามีตัวbooking อยู่เเล้ว)
+}
+
+//@desc     update review booking
+//@route    Put /api/v1/bookings/updateReview
+//@access   Private (User)
+exports.updateReview = async (req, res) => {
+  //ให้ user update review
+}
+
+//@desc     delete review booking
+//@route    Put /api/v1/bookings/review
+//@access   Private (User)
+exports.deleteReview = async (req, res) => {
+  //user ลบ review จะเอา review กลับไปเป็น null status กลับเป็น check-out เเต่ถ้าเป็นadmin ลบ review กลับไปเป็นnull status เป็น can-not-review
+}
