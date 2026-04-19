@@ -792,12 +792,40 @@ exports.getCampgroundReview = async (req, res) => {
 
     const campgroundIds = ownedCampgrounds.map((c) => c._id);
 
+    // copy query params
+    let reqQuery = { ...req.query };
+
+    // fields ที่ไม่ใช้ filter
+    const removeFields = ["select", "sort", "page", "limit"];
+    removeFields.forEach((param) => delete reqQuery[param]);
+
+    // แปลง operator เป็น Mongo ($gte, $lte, ...)
+    let queryStr = JSON.stringify(reqQuery);
+    queryStr = queryStr.replace(
+      /\b(gte|gt|lte|lt|in)\b/g,
+      (match) => `$${match}`
+    );
+
+    const mongoQuery = JSON.parse(queryStr);
+
+    //ป้องกัน user override field สำคัญ
+    delete mongoQuery.status;
+    delete mongoQuery.campground;
+
     // base query
-    let query = Booking.find({
+    const baseQuery = {
       campground: { $in: campgroundIds },
       review_rating: { $ne: null },
       status: "reviewed",
-    }).populate([
+    };
+
+    // รวม query
+    const finalQuery = {
+      ...baseQuery,
+      ...mongoQuery,
+    };
+
+    let query = Booking.find(finalQuery).populate([
       {
         path: "campground",
         select: "name province district",
@@ -808,12 +836,11 @@ exports.getCampgroundReview = async (req, res) => {
       },
     ]);
 
-    //เพิ่ม sort จาก query
+    // sort
     if (req.query.sort) {
       const sortBy = req.query.sort.split(",").join(" ");
       query = query.sort(sortBy);
     } else {
-      // default sort
       query = query.sort("-review_createdAt");
     }
 
