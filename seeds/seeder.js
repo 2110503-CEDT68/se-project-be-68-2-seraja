@@ -356,24 +356,19 @@ const seedDatabase = async () => {
         checkOutOffset: 2,
         status: "confirmed",
       },
-      // 2. James Two — late checkout, still checked in
+      // 2. James Two — James Five late checkout, still checked in
       {
         user: jamesTwo,
         campground: campgrounds[1],
-        checkInOffset: -1,
-        checkOutOffset: 0,
-        checkInTime: "15:00",
-        checkOutTime: "11:00",
+        checkInOffset: 0,
+        checkOutOffset: 2,
 
-        actualCheckInOffset: -1,
-        actualCheckInTime: "15:20",
-
-        status: "checked-in",
+        status: "confirmed",
       },
       // 3. James Three — normal check-in
       {
         user: jamesThree,
-        campground: campgrounds[0],
+        campground: campgrounds[2],
         checkInOffset: 0,
         checkOutOffset: 2,
         actualCheckInOffset: 0,
@@ -393,13 +388,18 @@ const seedDatabase = async () => {
         actualCheckOutTime: "13:45",
         status: "checked-out",
       },
-      // 5. Random mix: confirmed registered user
+      // 5. Use with James two
       {
         user: jamesFive,
-        campground: campgrounds[4],
-        checkInOffset: 0,
-        checkOutOffset: 2,
-        status: "confirmed",
+        campground: campgrounds[1],
+        checkInOffset: -1,
+        checkOutOffset: 0,
+        checkInTime: "15:00",
+        checkOutTime: "11:00",
+        actualCheckInOffset: -1,
+        actualCheckInTime: "15:20",
+
+        status: "checked-in",
       },
       // 6. Random mix: confirmed guest booking
       {
@@ -431,12 +431,13 @@ const seedDatabase = async () => {
       },
       // 9. Random mix: checked-out registered user
       {
-        user: users[7],
+        user: users[7], // James Eight
         campground: campgrounds[8],
-        checkInOffset: -2,
-        checkOutOffset: -1,
-        actualCheckInOffset: -2,
-        actualCheckOutOffset: -1,
+        checkInOffset: -2, // Checked in 2 days ago
+        checkOutOffset: -1, // Checked out yesterday
+        actualCheckInOffset: -2, // Checked in 2 days ago
+        actualCheckOutOffset: -1, // Checked out yesterday
+        actualCheckOutTime: "9:30", // Early checkout
         status: "checked-out",
       },
       // 10. Random mix: cancelled registered user
