@@ -36,25 +36,81 @@ const seedAdmins = [
 ];
 
 const seedCampOwner = {
-  name: "Somchai Koh",
+  name: "James Owner",
   tel: "0812345678",
-  email: "somchai.owner@example.com",
+  email: "james.owner@example.com",
   role: "campOwner",
   password: "password123",
 };
 
 const seedUsers = [
   {
-    name: "John Smith",
-    tel: "0898765432",
-    email: "john.smith@example.com",
+    name: "James One",
+    tel: "0812345678",
+    email: "james.one@example.com",
     role: "user",
     password: "password123",
   },
   {
-    name: "Sarah Johnson",
-    tel: "0897654321",
-    email: "sarah.johnson@example.com",
+    name: "James Two",
+    tel: "0812345679",
+    email: "james.two@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Three",
+    tel: "0812345680",
+    email: "james.three@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Four",
+    tel: "0812345681",
+    email: "james.four@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Five",
+    tel: "0812345682",
+    email: "james.five@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Six",
+    tel: "0812345683",
+    email: "james.six@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Seven",
+    tel: "0812345684",
+    email: "james.seven@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Eight",
+    tel: "0812345685",
+    email: "james.eight@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Nine",
+    tel: "0812345686",
+    email: "james.nine@example.com",
+    role: "user",
+    password: "password123",
+  },
+  {
+    name: "James Ten",
+    tel: "0812345687",
+    email: "james.ten@example.com",
     role: "user",
     password: "password123",
   },
@@ -70,7 +126,7 @@ const seedCampgrounds = [
     postalcode: "50000",
     tel: "0811111111",
     region: "North",
-    capacity: 50,
+    capacity: 1,
   },
   {
     name: "Green Valley Resort",
@@ -80,7 +136,7 @@ const seedCampgrounds = [
     postalcode: "62000",
     tel: "0822222222",
     region: "North",
-    capacity: 40,
+    capacity: 1,
   },
   {
     name: "Riverside Paradise",
@@ -90,7 +146,7 @@ const seedCampgrounds = [
     postalcode: "67000",
     tel: "0833333333",
     region: "Central",
-    capacity: 60,
+    capacity: 1,
   },
   {
     name: "Sunset Beach Camp",
@@ -100,7 +156,7 @@ const seedCampgrounds = [
     postalcode: "21000",
     tel: "0844444444",
     region: "East",
-    capacity: 75,
+    capacity: 1,
   },
   {
     name: "Forest Escape Retreat",
@@ -110,7 +166,7 @@ const seedCampgrounds = [
     postalcode: "30000",
     tel: "0855555555",
     region: "Isaan",
-    capacity: 45,
+    capacity: 1,
   },
   {
     name: "Mountain Peak Adventure",
@@ -120,7 +176,7 @@ const seedCampgrounds = [
     postalcode: "65000",
     tel: "0866666666",
     region: "North",
-    capacity: 55,
+    capacity: 1,
   },
   {
     name: "Lakeside Comfort Camp",
@@ -130,7 +186,7 @@ const seedCampgrounds = [
     postalcode: "84000",
     tel: "0877777777",
     region: "South",
-    capacity: 35,
+    capacity: 1,
   },
   {
     name: "Tropical Nature Lodge",
@@ -140,7 +196,7 @@ const seedCampgrounds = [
     postalcode: "90000",
     tel: "0888888888",
     region: "South",
-    capacity: 50,
+    capacity: 1,
   },
   {
     name: "Desert Oasis Camp",
@@ -150,7 +206,7 @@ const seedCampgrounds = [
     postalcode: "60000",
     tel: "0899999999",
     region: "Central",
-    capacity: 40,
+    capacity: 1,
   },
   {
     name: "Starlight Meadows Camp",
@@ -160,7 +216,7 @@ const seedCampgrounds = [
     postalcode: "52000",
     tel: "0810101010",
     region: "North",
-    capacity: 65,
+    capacity: 1,
   },
 ];
 
@@ -176,19 +232,42 @@ const seedCampgrounds = [
  * @param {object}  opts.campground - Mongoose Campground document
  * @param {number}  opts.checkInOffset  - Days relative to today (negative = past)
  * @param {number}  opts.checkOutOffset
+ * @param {string}  [opts.checkInTime]  - Time in HH:mm format (24h)
+ * @param {string}  [opts.checkOutTime] - Time in HH:mm format (24h)
  * @param {string}  opts.status   - "confirmed" | "checked-in" | "checked-out" | "cancelled"
  * @param {number}  [opts.cancelledAtOffset] - Required when status === "cancelled"
+ * @param {string}  [opts.actualCheckInTime] - Time in HH:mm format (24h)
+ * @param {string}  [opts.actualCheckOutTime] - Time in HH:mm format (24h)
+ * @param {string}  [opts.cancelledAtTime] - Time in HH:mm format (24h)
  * @param {number}  [opts.actualCheckInOffset]
  * @param {number}  [opts.actualCheckOutOffset]
  */
 const makeBooking = (today, opts) => {
   const daysMs = (n) => n * 24 * 60 * 60 * 1000;
   const offset = (n) => new Date(today.getTime() + daysMs(n));
+  const withTime = (dayOffset, time) => {
+    const date = offset(dayOffset);
+
+    if (!time) return date;
+
+    const [hour, minute] = String(time)
+      .split(":")
+      .map((part) => Number.parseInt(part, 10));
+    const safeHour = Number.isInteger(hour)
+      ? Math.min(Math.max(hour, 0), 23)
+      : 0;
+    const safeMinute = Number.isInteger(minute)
+      ? Math.min(Math.max(minute, 0), 59)
+      : 0;
+
+    date.setHours(safeHour, safeMinute, 0, 0);
+    return date;
+  };
 
   const booking = {
     campground: opts.campground._id,
-    checkInDate: offset(opts.checkInOffset),
-    checkOutDate: offset(opts.checkOutOffset),
+    checkInDate: withTime(opts.checkInOffset, opts.checkInTime),
+    checkOutDate: withTime(opts.checkOutOffset, opts.checkOutTime),
     status: opts.status,
   };
 
@@ -196,11 +275,20 @@ const makeBooking = (today, opts) => {
   if (opts.guestName) booking.guestName = opts.guestName;
   if (opts.guestTel) booking.guestTel = opts.guestTel;
   if (opts.actualCheckInOffset !== undefined)
-    booking.actualCheckIn = offset(opts.actualCheckInOffset);
+    booking.actualCheckIn = withTime(
+      opts.actualCheckInOffset,
+      opts.actualCheckInTime,
+    );
   if (opts.actualCheckOutOffset !== undefined)
-    booking.actualCheckOut = offset(opts.actualCheckOutOffset);
+    booking.actualCheckOut = withTime(
+      opts.actualCheckOutOffset,
+      opts.actualCheckOutTime,
+    );
   if (opts.cancelledAtOffset !== undefined)
-    booking.cancelledAt = offset(opts.cancelledAtOffset);
+    booking.cancelledAt = withTime(
+      opts.cancelledAtOffset,
+      opts.cancelledAtTime,
+    );
 
   return booking;
 };
@@ -244,7 +332,10 @@ const seedDatabase = async () => {
     console.log("\nCreating campgrounds...");
     const campgrounds = [];
     for (const data of seedCampgrounds) {
-      const campground = await Campground.create({ ...data, owner: campOwner._id });
+      const campground = await Campground.create({
+        ...data,
+        owner: campOwner._id,
+      });
       campgrounds.push(campground);
       console.log(`  ✓ Campground: ${campground.name}`);
     }
@@ -252,98 +343,109 @@ const seedDatabase = async () => {
     // ── Bookings ────────────────────────────────────────────────────────────
     console.log("\nCreating bookings...");
     const today = new Date();
-    const [john, sarah] = users;
-    const [cg0, cg1, cg2, cg3, cg4] = campgrounds;
+    const [jamesOne, jamesTwo, jamesThree, jamesFour, jamesFive, jamesSix] =
+      users;
+    // const [cg0, cg1, cg2, cg3, cg4] = campgrounds;
 
     const bookingSpecs = [
-      // Past — checked-out (john)
+      // 1. James One — normal confirmed booking
       {
-        user: john,
-        campground: cg0,
-        checkInOffset: -10,
-        checkOutOffset: -8,
-        actualCheckInOffset: -10,
-        actualCheckOutOffset: -8,
-        status: "checked-out",
+        user: jamesOne,
+        campground: campgrounds[0],
+        checkInOffset: 0,
+        checkOutOffset: 2,
+        status: "confirmed",
       },
-      // Past — checked-out (sarah)
+      // 2. James Two — late checkout, still checked in
       {
-        user: sarah,
-        campground: cg1,
-        checkInOffset: -15,
-        checkOutOffset: -13,
-        actualCheckInOffset: -15,
-        actualCheckOutOffset: -13,
-        status: "checked-out",
-      },
-      // Active — checked-in (john)
-      {
-        user: john,
-        campground: cg2,
-        checkInOffset: -2,
-        checkOutOffset: 1,
-        actualCheckInOffset: -2,
+        user: jamesTwo,
+        campground: campgrounds[1],
+        checkInOffset: -1,
+        checkOutOffset: 0,
+        checkInTime: "15:00",
+        checkOutTime: "11:00",
+
+        actualCheckInOffset: -1,
+        actualCheckInTime: "15:20",
+
         status: "checked-in",
       },
-      // Active — checked-in (sarah)
+      // 3. James Three — normal check-in
       {
-        user: sarah,
-        campground: cg3,
+        user: jamesThree,
+        campground: campgrounds[0],
+        checkInOffset: 0,
+        checkOutOffset: 2,
+        actualCheckInOffset: 0,
+        status: "checked-in",
+      },
+      // 4. James Four — late checkout and already checked out
+      {
+        user: jamesFour,
+        campground: campgrounds[3],
+        checkInOffset: -1,
+        checkOutOffset: 0,
+        checkInTime: "15:00",
+        checkOutTime: "11:00",
+        actualCheckInOffset: -1,
+        actualCheckInTime: "15:10",
+        actualCheckOutOffset: 0,
+        actualCheckOutTime: "13:45",
+        status: "checked-out",
+      },
+      // 5. Random mix: confirmed registered user
+      {
+        user: jamesFive,
+        campground: campgrounds[4],
+        checkInOffset: 0,
+        checkOutOffset: 2,
+        status: "confirmed",
+      },
+      // 6. Random mix: confirmed guest booking
+      {
+        guestName: "Maya Chen",
+        guestTel: "0634567890",
+        campground: campgrounds[5],
+        checkInOffset: 1,
+        checkOutOffset: 3,
+        status: "confirmed",
+      },
+      // 7. Random mix: checked-in registered user
+      {
+        user: jamesSix,
+        campground: campgrounds[6],
         checkInOffset: -1,
         checkOutOffset: 2,
         actualCheckInOffset: -1,
         status: "checked-in",
       },
-      // Future — confirmed (john)
+      // 8. Random mix: cancelled guest booking
       {
-        user: john,
-        campground: cg4,
-        checkInOffset: 5,
-        checkOutOffset: 7,
-        status: "confirmed",
-      },
-      // Future — confirmed (sarah)
-      {
-        user: sarah,
-        campground: campgrounds[5],
-        checkInOffset: 10,
-        checkOutOffset: 12,
-        status: "confirmed",
-      },
-      // Future — guest booking (no registered account)
-      {
-        guestName: "Tom Hardy",
-        guestTel: "0612345678",
-        campground: campgrounds[6],
-        checkInOffset: 3,
-        checkOutOffset: 5,
-        status: "confirmed",
-      },
-      // Future — guest booking
-      {
-        guestName: "Grace Lee",
-        guestTel: "0623456789",
+        guestName: "Noah Park",
+        guestTel: "0645678901",
         campground: campgrounds[7],
-        checkInOffset: 14,
-        checkOutOffset: 16,
-        status: "confirmed",
-      },
-      // Cancelled — past (john)
-      {
-        user: john,
-        campground: campgrounds[8],
-        checkInOffset: -7,
-        checkOutOffset: -5,
-        cancelledAtOffset: -8,
+        checkInOffset: 0,
+        checkOutOffset: 1,
+        cancelledAtOffset: -1,
         status: "cancelled",
       },
-      // Cancelled — future (sarah)
+      // 9. Random mix: checked-out registered user
       {
-        user: sarah,
+        user: users[7],
+        campground: campgrounds[8],
+        checkInOffset: -2,
+        checkOutOffset: -1,
+        actualCheckInOffset: -2,
+        actualCheckOutOffset: -1,
+        status: "checked-out",
+      },
+      // 10. Random mix: cancelled registered user
+      {
+        user: users[8],
         campground: campgrounds[9],
-        checkInOffset: 20,
-        checkOutOffset: 22,
-        cancelledAtOffset: -1,
+        checkInOffset: 0,
+        checkOutOffset: 2,
+        cancelledAtOffset: 0,
         status: "cancelled",
       },
     ];
@@ -354,7 +456,9 @@ const seedDatabase = async () => {
       const actor = spec.user
         ? `user: ${spec.user.email}`
         : `guest: ${spec.guestName}`;
-      console.log(`  ✓ Booking [${spec.status}] — ${actor} @ ${spec.campground.name}`);
+      console.log(
+        `  ✓ Booking [${spec.status}] — ${actor} @ ${spec.campground.name}`,
+      );
     }
 
     // ── Summary ─────────────────────────────────────────────────────────────
@@ -363,7 +467,9 @@ const seedDatabase = async () => {
     console.log(`  Admins       : ${admins.length}`);
     console.log(`  Camp owners  : 1  (${campOwner.email})`);
     console.log(`  Users        : ${users.length}`);
-    console.log(`  Campgrounds  : ${campgrounds.length}  (all owned by ${campOwner.email})`);
+    console.log(
+      `  Campgrounds  : ${campgrounds.length}  (all owned by ${campOwner.email})`,
+    );
     console.log(`  Bookings     : ${bookingSpecs.length}`);
     process.exit(0);
   } catch (err) {
