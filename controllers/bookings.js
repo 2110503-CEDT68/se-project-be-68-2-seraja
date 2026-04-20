@@ -774,23 +774,20 @@ exports.getTodayCheckouts = async (req, res) => {
 };
 
 //@desc     Get campground reviews
-//@route    GET /api/v1/bookings/review
-//@access   Private (campOwner)
+//@route    GET /api/v1/bookings/:id/review
+//@access   Private (campOwner,user,admin)
 exports.getCampgroundReview = async (req, res) => {
   try {
-    if (req.user.role !== "campOwner") {
+    const allowedRoles = ["campOwner", "user", "admin"];
+
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
-        success: false,
-        message: "Not authorized to access campground reviews",
-      });
-    }
+      success: false,
+      message: "Not authorized to access campground reviews",
+    });
+  } 
 
-    // หา campground ของ owner
-    const ownedCampgrounds = await Campground.find({
-      owner: req.user._id,
-    }).select("_id");
-
-    const campgroundIds = ownedCampgrounds.map((c) => c._id);
+    const campgroundId = req.params.id;
 
     // copy query params
     let reqQuery = { ...req.query };
@@ -814,7 +811,7 @@ exports.getCampgroundReview = async (req, res) => {
 
     // base query
     const baseQuery = {
-      campground: { $in: campgroundIds },
+      campground: campgroundId,
       review_rating: { $ne: null },
       status: "reviewed",
     };

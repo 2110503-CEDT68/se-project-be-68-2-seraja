@@ -24,7 +24,6 @@ router
   .post(protect, authorize("admin", "user", "campOwner"), addBooking);
 
 
-router.route("/review").get(protect,authorize("campOwner"),getCampgroundReview)
 router.route("/export").get(protect, exportBookings);
 router
   .route("/today-checkouts")
@@ -45,4 +44,5 @@ router.put(
 router.put("/:id/checkin", protect, authorize("campOwner"), checkInBooking);
 router.put("/:id/checkout", protect, authorize("campOwner"), checkOutBooking);
 router.put("/:id/review",protect,authorize("user"),createReview)
+router.get("/:id/review",protect,authorize("admin", "user", "campOwner"),getCampgroundReview)
 module.exports = router;
