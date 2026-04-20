@@ -71,6 +71,10 @@ const BookingSchema = new mongoose.Schema({
     },
     review_createdAt: {
         type: Date,
+    },
+    review_isDeleted: {
+        type: Boolean,
+        default: false
     }
 });
 

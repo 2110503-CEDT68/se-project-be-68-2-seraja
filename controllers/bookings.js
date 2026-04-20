@@ -774,19 +774,10 @@ exports.getTodayCheckouts = async (req, res) => {
 };
 
 //@desc     Get campground reviews
-//@route    GET /api/v1/bookings/:id/review
-//@access   Private (campOwner,user,admin)
+//@route    GET /api/v1/campgrounds/:id/reviews
+//@access   Public
 exports.getCampgroundReview = async (req, res) => {
   try {
-    const allowedRoles = ["campOwner", "user", "admin"];
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-      success: false,
-      message: "Not authorized to access campground reviews",
-    });
-  } 
-
     const campgroundId = req.params.id;
 
     // copy query params
@@ -812,8 +803,8 @@ exports.getCampgroundReview = async (req, res) => {
     // base query
     const baseQuery = {
       campground: campgroundId,
-      review_rating: { $ne: null },
       status: "reviewed",
+      review_isDeleted: { $ne: true },
     };
 
     // รวม query
@@ -898,6 +889,13 @@ exports.createReview = async (req, res) => {
       });
     }
 
+    if (booking.status === "can-not-review") {
+      return res.status(403).json({
+        success: false,
+        message: "This booking has been blocked from reviewing",
+      });
+    }
+
     // ต้อง check-out แล้วเท่านั้น
     if (booking.status !== "checked-out") {
       return res.status(400).json({
@@ -943,16 +941,102 @@ exports.createReview = async (req, res) => {
   }
 };
 
-//@desc     update review booking
-//@route    Put /api/v1/bookings/updateReview
+//@desc     Update review booking
+//@route    PUT /api/v1/bookings/:id/review/update
 //@access   Private (User)
 exports.updateReview = async (req, res) => {
-  //ให้ user update review
-}
+  try {
+    const { review_rating, review_comment } = req.body;
 
-//@desc     delete review booking
-//@route    Put /api/v1/bookings/review
-//@access   Private (User)
+    if (req.user.role !== "user") {
+      return res.status(403).json({
+        success: false,
+        message: "Only users can update reviews",
+      });
+    }
+
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: `No booking with id ${req.params.id}`,
+      });
+    }
+
+    if (!booking.user || booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this review",
+      });
+    }
+
+    if (booking.status !== "reviewed" || booking.review_isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "No active review to update",
+      });
+    }
+
+    if (!review_rating || review_rating < 1 || review_rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    booking.review_rating = review_rating;
+    booking.review_comment = review_comment ?? null;
+    booking.review_createdAt = new Date();
+    await booking.save();
+
+    res.status(200).json({ success: true, data: booking });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Cannot update review" });
+  }
+};
+
+//@desc     Delete review booking (soft delete)
+//@route    DELETE /api/v1/bookings/:id/review
+//@access   Private (User, Admin)
 exports.deleteReview = async (req, res) => {
-  //user ลบ review จะเอา review กลับไปเป็น null status กลับเป็น check-out เเต่ถ้าเป็นadmin ลบ review กลับไปเป็นnull status เป็น can-not-review
-}
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: `No booking with id ${req.params.id}`,
+      });
+    }
+
+    const isOwner =
+      booking.user && booking.user.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this review",
+      });
+    }
+
+    if (booking.status !== "reviewed" || booking.review_isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "No active review to delete",
+      });
+    }
+
+    booking.review_isDeleted = true;
+    // user delete → can re-review; admin delete → permanently blocked
+    booking.status = isAdmin ? "can-not-review" : "checked-out";
+    await booking.save();
+
+    res.status(200).json({ success: true, data: booking });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Cannot delete review" });
+  }
+};
