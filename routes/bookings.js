@@ -10,6 +10,8 @@ const {
   checkOutBooking,
   cancelBooking,
   getTodayCheckouts,
+  getCampgroundReview,
+  createReview
 } = require("../controllers/bookings");
 
 const { protect, authorize } = require("../middleware/auth");
@@ -22,6 +24,7 @@ router
   .post(protect, authorize("admin", "user", "campOwner"), addBooking);
 
 
+router.route("/review").get(protect,authorize("campOwner"),getCampgroundReview)
 router.route("/export").get(protect, exportBookings);
 router
   .route("/today-checkouts")
@@ -41,5 +44,5 @@ router.put(
 );
 router.put("/:id/checkin", protect, authorize("campOwner"), checkInBooking);
 router.put("/:id/checkout", protect, authorize("campOwner"), checkOutBooking);
-
+router.put("/:id/review",protect,authorize("user"),createReview)
 module.exports = router;
