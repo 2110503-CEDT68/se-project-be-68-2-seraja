@@ -7,7 +7,7 @@ const BookingSchema = new mongoose.Schema({
         type: Date,
         required: [true, 'Please provide check-in date']
     },
-    checkOutDate: {
+    checkOutDate: { 
         type: Date,
         required: [true, 'Please provide check-out date']
     },

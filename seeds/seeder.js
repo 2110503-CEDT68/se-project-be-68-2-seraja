@@ -234,13 +234,18 @@ const seedCampgrounds = [
  * @param {number}  opts.checkOutOffset
  * @param {string}  [opts.checkInTime]  - Time in HH:mm format (24h)
  * @param {string}  [opts.checkOutTime] - Time in HH:mm format (24h)
- * @param {string}  opts.status   - "confirmed" | "checked-in" | "checked-out" | "cancelled"
+ * @param {string}  opts.status   - "confirmed" | "checked-in" | "checked-out" | "cancelled" | "reviewed" | "can-not-review"
  * @param {number}  [opts.cancelledAtOffset] - Required when status === "cancelled"
  * @param {string}  [opts.actualCheckInTime] - Time in HH:mm format (24h)
  * @param {string}  [opts.actualCheckOutTime] - Time in HH:mm format (24h)
  * @param {string}  [opts.cancelledAtTime] - Time in HH:mm format (24h)
  * @param {number}  [opts.actualCheckInOffset]
  * @param {number}  [opts.actualCheckOutOffset]
+ * @param {number}  [opts.reviewRating]      - 1-5 (required for status "reviewed")
+ * @param {string}  [opts.reviewComment]
+ * @param {number}  [opts.reviewCreatedAtOffset]
+ * @param {string}  [opts.reviewCreatedAtTime]
+ * @param {boolean} [opts.reviewIsDeleted]
  */
 const makeBooking = (today, opts) => {
   const daysMs = (n) => n * 24 * 60 * 60 * 1000;
@@ -289,6 +294,15 @@ const makeBooking = (today, opts) => {
       opts.cancelledAtOffset,
       opts.cancelledAtTime,
     );
+  if (opts.reviewRating !== undefined) booking.review_rating = opts.reviewRating;
+  if (opts.reviewComment !== undefined) booking.review_comment = opts.reviewComment;
+  if (opts.reviewCreatedAtOffset !== undefined)
+    booking.review_createdAt = withTime(
+      opts.reviewCreatedAtOffset,
+      opts.reviewCreatedAtTime,
+    );
+  if (opts.reviewIsDeleted !== undefined)
+    booking.review_isDeleted = opts.reviewIsDeleted;
 
   return booking;
 };
@@ -343,8 +357,18 @@ const seedDatabase = async () => {
     // ── Bookings ────────────────────────────────────────────────────────────
     console.log("\nCreating bookings...");
     const today = new Date();
-    const [jamesOne, jamesTwo, jamesThree, jamesFour, jamesFive, jamesSix] =
-      users;
+    const [
+      jamesOne,
+      jamesTwo,
+      jamesThree,
+      jamesFour,
+      jamesFive,
+      jamesSix,
+      jamesSeven,
+      jamesEight,
+      jamesNine,
+      jamesTen,
+    ] = users;
     // const [cg0, cg1, cg2, cg3, cg4] = campgrounds;
 
     const bookingSpecs = [
@@ -431,7 +455,7 @@ const seedDatabase = async () => {
       },
       // 9. Random mix: checked-out registered user
       {
-        user: users[7], // James Eight
+        user: jamesEight,
         campground: campgrounds[8],
         checkInOffset: -2, // Checked in 2 days ago
         checkOutOffset: -1, // Checked out yesterday
@@ -442,12 +466,213 @@ const seedDatabase = async () => {
       },
       // 10. Random mix: cancelled registered user
       {
-        user: users[8],
+        user: jamesNine,
         campground: campgrounds[9],
         checkInOffset: 0,
         checkOutOffset: 2,
         cancelledAtOffset: 0,
         status: "cancelled",
+      },
+      // 11. Reviewed booking — 5 stars on Pine Mountain
+      {
+        user: jamesSeven,
+        campground: campgrounds[0],
+        checkInOffset: -5,
+        checkOutOffset: -3,
+        actualCheckInOffset: -5,
+        actualCheckInTime: "15:05",
+        actualCheckOutOffset: -3,
+        actualCheckOutTime: "10:30",
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Stunning views and friendly staff. Will be back!",
+        reviewCreatedAtOffset: -2,
+        reviewCreatedAtTime: "18:00",
+      },
+      // 12. Reviewed booking — 4 stars on Pine Mountain (drives averageRating)
+      {
+        user: jamesEight,
+        campground: campgrounds[0],
+        checkInOffset: -8,
+        checkOutOffset: -6,
+        actualCheckInOffset: -8,
+        actualCheckOutOffset: -6,
+        status: "reviewed",
+        reviewRating: 4,
+        reviewComment: "Great spot, a little chilly at night.",
+        reviewCreatedAtOffset: -5,
+      },
+      // 13. Reviewed booking — 3 stars on Green Valley
+      {
+        user: jamesTen,
+        campground: campgrounds[1],
+        checkInOffset: -10,
+        checkOutOffset: -8,
+        actualCheckInOffset: -10,
+        actualCheckOutOffset: -8,
+        status: "reviewed",
+        reviewRating: 3,
+        reviewComment: "Decent facilities but bathrooms need work.",
+        reviewCreatedAtOffset: -7,
+      },
+      // 14. Reviewed but soft-deleted (should NOT count toward averageRating)
+      {
+        user: jamesNine,
+        campground: campgrounds[1],
+        checkInOffset: -12,
+        checkOutOffset: -10,
+        actualCheckInOffset: -12,
+        actualCheckOutOffset: -10,
+        status: "reviewed",
+        reviewRating: 1,
+        reviewComment: "Inappropriate content removed by moderator.",
+        reviewCreatedAtOffset: -9,
+        reviewIsDeleted: true,
+      },
+      // 15. Can-not-review — review window expired without a review
+      {
+        user: jamesSix,
+        campground: campgrounds[2],
+        checkInOffset: -20,
+        checkOutOffset: -18,
+        actualCheckInOffset: -20,
+        actualCheckOutOffset: -18,
+        status: "can-not-review",
+      },
+      // 16. Walk-in guest reviewed booking on Sunset Beach
+      {
+        guestName: "Lila Tan",
+        guestTel: "0656789012",
+        campground: campgrounds[3],
+        checkInOffset: -6,
+        checkOutOffset: -4,
+        actualCheckInOffset: -6,
+        actualCheckOutOffset: -4,
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Perfect beachside getaway, super relaxing.",
+        reviewCreatedAtOffset: -3,
+      },
+      // 17–26. Ten reviews on Desert Oasis Camp (campgrounds[8])
+      {
+        user: jamesOne,
+        campground: campgrounds[8],
+        checkInOffset: -30,
+        checkOutOffset: -28,
+        actualCheckInOffset: -30,
+        actualCheckOutOffset: -28,
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Magical desert nights, the stargazing was unreal.",
+        reviewCreatedAtOffset: -27,
+      },
+      {
+        user: jamesTwo,
+        campground: campgrounds[8],
+        checkInOffset: -33,
+        checkOutOffset: -31,
+        actualCheckInOffset: -33,
+        actualCheckOutOffset: -31,
+        status: "reviewed",
+        reviewRating: 4,
+        reviewComment: "Loved the bonfire setup. A bit dusty during the day.",
+        reviewCreatedAtOffset: -30,
+      },
+      {
+        user: jamesThree,
+        campground: campgrounds[8],
+        checkInOffset: -36,
+        checkOutOffset: -34,
+        actualCheckInOffset: -36,
+        actualCheckOutOffset: -34,
+        status: "reviewed",
+        reviewRating: 3,
+        reviewComment: "Decent stay overall, the showers were lukewarm.",
+        reviewCreatedAtOffset: -33,
+      },
+      {
+        user: jamesFour,
+        campground: campgrounds[8],
+        checkInOffset: -40,
+        checkOutOffset: -38,
+        actualCheckInOffset: -40,
+        actualCheckOutOffset: -38,
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Hosts were extremely welcoming. Highly recommend.",
+        reviewCreatedAtOffset: -37,
+      },
+      {
+        user: jamesFive,
+        campground: campgrounds[8],
+        checkInOffset: -45,
+        checkOutOffset: -43,
+        actualCheckInOffset: -45,
+        actualCheckOutOffset: -43,
+        status: "reviewed",
+        reviewRating: 2,
+        reviewComment: "Site was harder to find than expected. Signage needs work.",
+        reviewCreatedAtOffset: -42,
+      },
+      {
+        user: jamesSix,
+        campground: campgrounds[8],
+        checkInOffset: -50,
+        checkOutOffset: -48,
+        actualCheckInOffset: -50,
+        actualCheckOutOffset: -48,
+        status: "reviewed",
+        reviewRating: 4,
+        reviewComment: "Perfect for a quick weekend escape from the city.",
+        reviewCreatedAtOffset: -47,
+      },
+      {
+        user: jamesSeven,
+        campground: campgrounds[8],
+        checkInOffset: -55,
+        checkOutOffset: -53,
+        actualCheckInOffset: -55,
+        actualCheckOutOffset: -53,
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Sunrise over the dunes was unforgettable.",
+        reviewCreatedAtOffset: -52,
+      },
+      {
+        user: jamesEight,
+        campground: campgrounds[8],
+        checkInOffset: -60,
+        checkOutOffset: -58,
+        actualCheckInOffset: -60,
+        actualCheckOutOffset: -58,
+        status: "reviewed",
+        reviewRating: 3,
+        reviewComment: "Good amenities but tents were a bit worn out.",
+        reviewCreatedAtOffset: -57,
+      },
+      {
+        user: jamesNine,
+        campground: campgrounds[8],
+        checkInOffset: -65,
+        checkOutOffset: -63,
+        actualCheckInOffset: -65,
+        actualCheckOutOffset: -63,
+        status: "reviewed",
+        reviewRating: 4,
+        reviewComment: "Great food packages and clean facilities.",
+        reviewCreatedAtOffset: -62,
+      },
+      {
+        user: jamesTen,
+        campground: campgrounds[8],
+        checkInOffset: -70,
+        checkOutOffset: -68,
+        actualCheckInOffset: -70,
+        actualCheckOutOffset: -68,
+        status: "reviewed",
+        reviewRating: 5,
+        reviewComment: "Absolutely loved every minute. Will book again.",
+        reviewCreatedAtOffset: -67,
       },
     ];
 
