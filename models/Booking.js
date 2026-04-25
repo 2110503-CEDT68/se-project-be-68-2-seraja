@@ -51,7 +51,7 @@ const BookingSchema = new mongoose.Schema({
     // ── Status ─────────────────────────────────────────
     status: {
         type: String,
-        enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled'],
+        enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled','reviewed','can-not-review'],
         default: 'confirmed'
     },
     cancelledAt: {
@@ -60,6 +60,21 @@ const BookingSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    review_rating: {
+        type: Number,
+        default: null
+    },
+    review_comment: {
+        type: String,
+        default: null
+    },
+    review_createdAt: {
+        type: Date,
+    },
+    review_isDeleted: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -83,6 +98,50 @@ BookingSchema.pre('save', async function () {
 
         if (this.nightsCount < 1) throw new Error('Minimum stay is 1 night');
         if (this.nightsCount > 3) throw new Error('Maximum stay is 3 nights');
+    }
+});
+
+BookingSchema.statics.calculateAverageRating = async function (campgroundId) {
+    const result = await this.aggregate([
+        {
+            $match: {
+                campground: campgroundId,
+                review_rating: { $ne: null },
+                review_isDeleted: false
+            }
+        },
+        {
+            $group: {
+                _id: '$campground',
+                avgRating: { $avg: '$review_rating' },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    try {
+        await mongoose.model('Campground').findByIdAndUpdate(campgroundId, {
+            averageRating: result[0]?.avgRating || null,
+            ratingsCount: result[0]?.count || 0
+        });
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+BookingSchema.post('save', function () {
+    this.constructor.calculateAverageRating(this.campground);
+});
+
+BookingSchema.post('findOneAndUpdate', async function (doc) {
+    if (doc) {
+        await doc.constructor.calculateAverageRating(doc.campground);
+    }
+});
+
+BookingSchema.post('findOneAndDelete', async function (doc) {
+    if (doc) {
+        await doc.constructor.calculateAverageRating(doc.campground);
     }
 });
 

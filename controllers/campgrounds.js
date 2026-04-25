@@ -22,9 +22,7 @@ exports.getCampgrounds = async (req, res, next) => {
       (match) => `$${match}`,
     );
 
-    let query = Campground.find(JSON.parse(queryStr)).populate({
-      path: "bookings",
-    });
+    let query = Campground.find(JSON.parse(queryStr));
 
     // Select
     if (req.query.select) {
@@ -68,12 +66,12 @@ exports.getCampground = async (req, res, next) => {
     const campground = await Campground.findById(req.params.id);
 
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 
     res.status(200).json({ success: true, data: campground });
   } catch (err) {
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 
@@ -93,7 +91,7 @@ exports.createCampground = async (req, res, next) => {
     res.status(201).json({ success: true, data: campground });
   } catch (err) {
     console.error(err);
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 
@@ -105,7 +103,7 @@ exports.updateCampground = async (req, res, next) => {
     let campground = await Campground.findById(req.params.id);
 
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 
     if (
@@ -118,6 +116,11 @@ exports.updateCampground = async (req, res, next) => {
       });
     }
 
+    // prevent campOwner from reassigning ownership
+    if (req.user.role !== "admin") {
+      delete req.body.owner;
+    }
+
     campground = await Campground.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -125,7 +128,7 @@ exports.updateCampground = async (req, res, next) => {
 
     res.status(200).json({ success: true, data: campground });
   } catch (err) {
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 
@@ -144,7 +147,7 @@ exports.deleteCampground = async (req, res, next) => {
     const campground = await Campground.findById(req.params.id);
 
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 
     // Delete all bookings associated with this campground
@@ -154,6 +157,6 @@ exports.deleteCampground = async (req, res, next) => {
     res.status(200).json({ success: true, data: {} });
   } catch (err) {
     console.error("Delete Campground Error:", err);
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };

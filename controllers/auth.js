@@ -10,13 +10,17 @@ exports.register = async (req, res, next) => {
     const { name, tel, email, password, role } = req.body;
     const normalizedEmail = email?.trim().toLowerCase();
 
+    // only user and campOwner can self-register
+    const allowedRoles = ["user", "campOwner"];
+    const assignedRole = allowedRoles.includes(role) ? role : "user";
+
     // Create user
     const user = await User.create({
       name,
       tel,
       email: normalizedEmail,
       password,
-      role,
+      role: assignedRole,
     });
 
     // Send token response

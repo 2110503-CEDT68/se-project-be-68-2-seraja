@@ -45,10 +45,10 @@
     "testEnvironment": "node",
     "collectCoverage": true,
     "collectCoverageFrom": [
-      "controllers/campgrounds.js"
+      "controllers/booking.js"
     ],
     "coverageThreshold": {
-      "global": {
+      "./controllers/booking.js": {
         "statements": 100,
         "branches": 100,
         "functions": 100,

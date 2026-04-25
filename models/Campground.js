@@ -43,6 +43,16 @@ const CampgroundSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: [true, 'Please add campground owner']
+    },
+    averageRating: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: null
+    },
+    ratingsCount: {
+        type: Number,
+        default: 0
     }
 }, {
     toJSON: {virtuals:true},

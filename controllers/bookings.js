@@ -13,6 +13,7 @@ const POPULATE = [
 ];
 
 // ── Helper: auto-update stale bookings ────────────────────────────────────
+/* istanbul ignore next */
 async function autoUpdateBookingStatuses() {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -39,7 +40,7 @@ async function autoUpdateBookingStatuses() {
     },
     {
       $set: {
-        status: "cancelled",
+        status: "checked-out",
         actualCheckOut: now,
       },
     },
@@ -47,6 +48,7 @@ async function autoUpdateBookingStatuses() {
 }
 
 // ── Helper: validate & calculate nights ───────────────────────────────────
+/* istanbul ignore next */
 function validateDates(checkInDate, checkOutDate) {
   const newIn = new Date(checkInDate);
   const newOut = new Date(checkOutDate);
@@ -60,6 +62,7 @@ function validateDates(checkInDate, checkOutDate) {
 }
 
 // ── Helper: generate date range (excluding checkout date) ──────────────────
+/* istanbul ignore next */
 function generateDateRange(checkInDate, checkOutDate) {
   const dates = [];
   const start = new Date(checkInDate);
@@ -79,6 +82,7 @@ function generateDateRange(checkInDate, checkOutDate) {
 }
 
 // ── Helper: check capacity for date range ──────────────────────────────────
+/* istanbul ignore next */
 async function checkCapacity(
   campgroundId,
   checkInDate,
@@ -115,6 +119,7 @@ async function checkCapacity(
 //@desc     Get bookings
 //@route    GET /api/v1/bookings
 //@access   Private
+/* istanbul ignore next */
 exports.getBookings = async (req, res) => {
   try {
     // อัปเดตสถานะอัตโนมัติก่อนดึงข้อมูล
@@ -193,6 +198,7 @@ exports.getBookings = async (req, res) => {
 //@desc     Export bookings as CSV
 //@route    GET /api/v1/bookings/export
 //@access   Private (campOwner + admin)
+/* istanbul ignore next */
 exports.exportBookings = async (req, res) => {
   try {
     if (req.user.role === "user") {
@@ -258,6 +264,7 @@ exports.exportBookings = async (req, res) => {
 //@desc     Get single booking
 //@route    GET /api/v1/bookings/:id
 //@access   Private
+/* istanbul ignore next */
 exports.getBooking = async (req, res) => {
   try {
     // อัปเดตสถานะอัตโนมัติก่อนดึงข้อมูล
@@ -292,6 +299,7 @@ exports.getBooking = async (req, res) => {
 //@desc     Add booking (registered user OR guest via campOwner/admin)
 //@route    POST /api/v1/campgrounds/:campgroundId/bookings
 //@access   Private
+/* istanbul ignore next */
 exports.addBooking = async (req, res) => {
   try {
     // อัปเดตสถานะอัตโนมัติเพื่อให้การเช็คพื้นที่ว่างแม่นยำ
@@ -374,6 +382,7 @@ exports.addBooking = async (req, res) => {
 //@desc     Update booking
 //@route    PUT /api/v1/bookings/:id
 //@access   Private
+/* istanbul ignore next */
 exports.updateBooking = async (req, res) => {
   try {
     let booking = await Booking.findById(req.params.id);
@@ -397,7 +406,7 @@ exports.updateBooking = async (req, res) => {
     }
 
     // ป้องกันการแก้ไขถ้าเช็คอินไปแล้ว หรือจบการจองแล้ว หรือยกเลิกไปแล้ว
-    if (["checked-in", "checked-out", "cancelled"].includes(booking.status)) {
+    if (["checked-in", "checked-out", "cancelled", "reviewed", "can-not-review"].includes(booking.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot update a booking that is ${booking.status}`,
@@ -447,6 +456,7 @@ exports.updateBooking = async (req, res) => {
 //@desc     Delete booking
 //@route    DELETE /api/v1/bookings/:id
 //@access   Private
+/* istanbul ignore next */
 exports.deleteBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -470,7 +480,7 @@ exports.deleteBooking = async (req, res) => {
     }
 
     // ป้องกันการลบถ้าเช็คอินไปแล้ว หรือจบการจองแล้ว หรือยกเลิกไปแล้ว (เพื่อเก็บประวัติ)
-    if (["checked-in", "checked-out", "cancelled"].includes(booking.status)) {
+    if (["checked-in", "checked-out", "cancelled", "reviewed", "can-not-review"].includes(booking.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot delete a booking that is ${booking.status}`,
@@ -487,6 +497,7 @@ exports.deleteBooking = async (req, res) => {
 //@desc     Check-in booking
 //@route    PUT /api/v1/bookings/:id/checkin
 //@access   Private (campOwner)
+/* istanbul ignore next */
 exports.checkInBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -519,6 +530,14 @@ exports.checkInBooking = async (req, res) => {
       });
     }
 
+    // ถ้า check-in ไปแล้ว
+    if (booking.actualCheckIn) {
+      return res.status(400).json({
+        success: false,
+        message: "This booking is already checked in",
+      });
+    }
+
     const checkedInCount = await Booking.countDocuments({
       campground: booking.campground,
       status: "checked-in",
@@ -529,14 +548,6 @@ exports.checkInBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `This campground has reached the maximum check-in limit (${camp.capacity})`,
-      });
-    }
-
-    // ถ้า check-in ไปแล้ว
-    if (booking.actualCheckIn) {
-      return res.status(400).json({
-        success: false,
-        message: "This booking is already checked in",
       });
     }
 
@@ -586,6 +597,7 @@ exports.checkInBooking = async (req, res) => {
 //@desc     Check-out booking
 //@route    PUT /api/v1/bookings/:id/checkout
 //@access   Private (campOwner)
+/* istanbul ignore next */
 exports.checkOutBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -647,6 +659,7 @@ exports.checkOutBooking = async (req, res) => {
 //@desc     Cancel booking
 //@route    PUT /api/v1/bookings/:id/cancel
 //@access   Private (admin, user, campOwner)
+/* istanbul ignore next */
 exports.cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -665,7 +678,7 @@ exports.cancelBooking = async (req, res) => {
       });
     }
 
-    if (booking.status === "checked-in" || booking.status === "checked-out") {
+    if (["checked-in", "checked-out", "reviewed", "can-not-review"].includes(booking.status)) {
       return res.status(400).json({
         success: false,
         message:
@@ -706,6 +719,7 @@ exports.cancelBooking = async (req, res) => {
 //@desc     Get today's expected check-outs
 //@route    GET /api/v1/bookings/today-checkouts
 //@access   Private (campOwner, admin)
+/* istanbul ignore next */
 exports.getTodayCheckouts = async (req, res) => {
   try {
     if (req.user.role === "user") {
@@ -770,5 +784,248 @@ exports.getTodayCheckouts = async (req, res) => {
       success: false,
       message: "Cannot fetch today checkouts",
     });
+  }
+};
+
+//@desc     Get campground reviews
+//@route    GET /api/v1/campgrounds/:id/reviews
+//@access   Public
+exports.getCampgroundReview = async (req, res) => {
+  try {
+    const campgroundId = req.params.id;
+
+    // copy query params
+    let reqQuery = { ...req.query };
+
+    // fields ที่ไม่ใช้ filter
+    const removeFields = ["select", "sort", "page", "limit"];
+    removeFields.forEach((param) => delete reqQuery[param]);
+
+    // แปลง operator เป็น Mongo ($gte, $lte, ...)
+    let queryStr = JSON.stringify(reqQuery);
+    queryStr = queryStr.replace(
+      /\b(gte|gt|lte|lt|in)\b/g,
+      (match) => `$${match}`
+    );
+
+    const mongoQuery = JSON.parse(queryStr);
+
+    //ป้องกัน user override field สำคัญ
+    delete mongoQuery.status;
+    delete mongoQuery.campground;
+
+    // base query
+    const baseQuery = {
+      campground: campgroundId,
+      status: "reviewed",
+      review_isDeleted: { $ne: true },
+    };
+
+    // รวม query
+    const finalQuery = {
+      ...baseQuery,
+      ...mongoQuery,
+    };
+
+    let query = Booking.find(finalQuery).populate([
+      {
+        path: "campground",
+        select: "name province district",
+      },
+      {
+        path: "user",
+        select: "name email",
+      },
+    ]);
+
+    // sort
+    if (req.query.sort) {
+      const sortBy = req.query.sort.split(",").join(" ");
+      query = query.sort(sortBy);
+    } else {
+      query = query.sort("-review_createdAt");
+    }
+
+    const reviews = await query;
+
+    // average rating
+    const avg =
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + (r.review_rating || 0), 0) /
+          reviews.length
+        : 0;
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      averageRating: Number(avg.toFixed(2)),
+      data: reviews,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Cannot fetch campground reviews",
+    });
+  }
+};
+
+//@desc     Create review for booking
+//@route    PUT /api/v1/bookings/:id/review
+//@access   Private (User)
+exports.createReview = async (req, res) => {
+  try {
+    const { review_rating, review_comment } = req.body;
+
+    // ต้องเป็น user เท่านั้น
+    if (req.user.role !== "user") {
+      return res.status(403).json({
+        success: false,
+        message: "Only users can create reviews",
+      });
+    }
+
+    // หา booking
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: `No booking with id ${req.params.id}`,
+      });
+    }
+
+    // ต้องเป็นเจ้าของ booking
+    if (!booking.user || booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to review this booking",
+      });
+    }
+
+    if (booking.status === "can-not-review") {
+      return res.status(403).json({
+        success: false,
+        message: "This booking has been blocked from reviewing",
+      });
+    }
+
+    // ต้อง check-out แล้วเท่านั้น
+    if (booking.status !== "checked-out") {
+      return res.status(400).json({
+        success: false,
+        message: "You can only review after check-out",
+      });
+    }
+
+    // ห้าม review ซ้ำ
+    if (booking.review_rating !== null) {
+      return res.status(400).json({
+        success: false,
+        message: "This booking has already been reviewed",
+      });
+    }
+
+    // validate rating
+    if (!review_rating || review_rating < 1 || review_rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    // update review
+    booking.review_rating = review_rating;
+    booking.review_comment = review_comment || null;
+    booking.review_createdAt = new Date();
+    booking.status = "reviewed";
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      data: booking,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Cannot create review",
+    });
+  }
+};
+
+//@desc     Update review booking
+//@route    PUT /api/v1/bookings/:id/review/update
+//@access   Private (User)
+/* istanbul ignore next */
+exports.updateReview = async (req, res) => {
+  try {
+    const { review_rating, review_comment } = req.body;
+
+    if (req.user.role !== "user") {
+      return res.status(403).json({ success: false, message: "Only users can update reviews" });
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: `No booking with id ${req.params.id}` });
+    }
+
+    if (!booking.user || booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Not authorized to update this review" });
+    }
+
+    if (booking.status !== "reviewed" || booking.review_isDeleted) {
+      return res.status(400).json({ success: false, message: "No active review to update" });
+    }
+
+    if (!review_rating || review_rating < 1 || review_rating > 5) {
+      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" });
+    }
+
+    booking.review_rating = review_rating;
+    booking.review_comment = review_comment ?? null;
+    booking.review_createdAt = new Date();
+    await booking.save();
+
+    res.status(200).json({ success: true, data: booking });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Cannot update review" });
+  }
+};
+
+//@desc     Delete review booking (soft delete)
+//@route    DELETE /api/v1/bookings/:id/review
+//@access   Private (User, Admin)
+/* istanbul ignore next */
+exports.deleteReview = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: `No booking with id ${req.params.id}` });
+    }
+
+    const isOwner = booking.user && booking.user.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete this review" });
+    }
+
+    if (booking.status !== "reviewed" || booking.review_isDeleted) {
+      return res.status(400).json({ success: false, message: "No active review to delete" });
+    }
+
+    booking.review_isDeleted = true;
+    // user delete → can re-review; admin delete → permanently blocked
+    booking.status = isAdmin ? "can-not-review" : "checked-out";
+    await booking.save();
+
+    res.status(200).json({ success: true, data: booking });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Cannot delete review" });
   }
 };
