@@ -1020,7 +1020,15 @@ exports.deleteReview = async (req, res) => {
 
     booking.review_isDeleted = true;
     // user delete → can re-review; admin delete → permanently blocked
-    booking.status = isAdmin ? "can-not-review" : "checked-out";
+    if (isAdmin) {
+      booking.status = "can-not-review";
+    } else {
+      booking.status = "checked-out";
+      booking.review_rating = null;
+      booking.review_comment = null;
+      booking.review_createdAt = null;
+      booking.review_isDeleted = false;
+    }
     await booking.save();
 
     res.status(200).json({ success: true, data: booking });
