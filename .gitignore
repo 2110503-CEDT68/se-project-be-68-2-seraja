@@ -3,6 +3,10 @@ config/config.env
 .env
 .env.*
 
+# Test coverage
+coverage/
+*.lcov
+
 # Logs
 logs/
 *.log
