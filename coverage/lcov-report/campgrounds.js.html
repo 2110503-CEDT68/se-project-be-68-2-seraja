@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>64/64</span>
+                <span class='fraction'>66/66</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>22/22</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>63/63</span>
+                <span class='fraction'>65/65</span>
             </div>
         
             
@@ -222,7 +222,10 @@
 <a name='L157'></a><a href='#L157'>157</a>
 <a name='L158'></a><a href='#L158'>158</a>
 <a name='L159'></a><a href='#L159'>159</a>
-<a name='L160'></a><a href='#L160'>160</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -249,8 +252,6 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -325,10 +326,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -336,18 +352,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -405,9 +411,7 @@ exports.getCampgrounds = async (req, res, next) =&gt; {
       (match) =&gt; `$${match}`,
     );
 &nbsp;
-    let query = Campground.find(JSON.parse(queryStr)).populate({
-      path: "bookings",
-    });
+    let query = Campground.find(JSON.parse(queryStr));
 &nbsp;
     // Select
     if (req.query.select) {
@@ -451,12 +455,12 @@ exports.getCampground = async (req, res, next) =&gt; {
     const campground = await Campground.findById(req.params.id);
 &nbsp;
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 &nbsp;
     res.status(200).json({ success: true, data: campground });
   } catch (err) {
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 &nbsp;
@@ -476,7 +480,7 @@ exports.createCampground = async (req, res, next) =&gt; {
     res.status(201).json({ success: true, data: campground });
   } catch (err) {
     console.error(err);
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 &nbsp;
@@ -488,7 +492,7 @@ exports.updateCampground = async (req, res, next) =&gt; {
     let campground = await Campground.findById(req.params.id);
 &nbsp;
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 &nbsp;
     if (
@@ -501,6 +505,11 @@ exports.updateCampground = async (req, res, next) =&gt; {
       });
     }
 &nbsp;
+    // prevent campOwner from reassigning ownership
+    if (req.user.role !== "admin") {
+      delete req.body.owner;
+    }
+&nbsp;
     campground = await Campground.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -508,7 +517,7 @@ exports.updateCampground = async (req, res, next) =&gt; {
 &nbsp;
     res.status(200).json({ success: true, data: campground });
   } catch (err) {
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 &nbsp;
@@ -527,7 +536,7 @@ exports.deleteCampground = async (req, res, next) =&gt; {
     const campground = await Campground.findById(req.params.id);
 &nbsp;
     if (!campground) {
-      return res.status(400).json({ success: false });
+      return res.status(404).json({ success: false, message: "Campground not found" });
     }
 &nbsp;
     // Delete all bookings associated with this campground
@@ -537,7 +546,7 @@ exports.deleteCampground = async (req, res, next) =&gt; {
     res.status(200).json({ success: true, data: {} });
   } catch (err) {
     console.error("Delete Campground Error:", err);
-    res.status(400).json({ success: false });
+    res.status(500).json({ success: false });
   }
 };
 &nbsp;</pre></td></tr></table></pre>
@@ -547,7 +556,7 @@ exports.deleteCampground = async (req, res, next) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-20T04:20:22.868Z
+                at 2026-04-25T10:54:28.833Z
             </div>
         <script src="prettify.js"></script>
         <script>

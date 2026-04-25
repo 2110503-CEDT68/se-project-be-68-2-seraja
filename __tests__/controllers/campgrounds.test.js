@@ -65,7 +65,6 @@ describe("campgrounds controller", () => {
       await campgroundsController.getCampgrounds(req, res, next);
 
       expect(Campground.find).toHaveBeenCalledWith({ price: { $gte: "100" } });
-      expect(query.populate).toHaveBeenCalledWith({ path: "bookings" });
       expect(query.select).toHaveBeenCalledWith("name address");
       expect(query.sort).toHaveBeenCalledWith("price -name");
       expect(query.skip).toHaveBeenCalledWith(10);
@@ -141,7 +140,7 @@ describe("campgrounds controller", () => {
       });
     });
 
-    it("returns 400 when campground is not found", async () => {
+    it("returns 404 when campground is not found", async () => {
       const req = { params: { id: "404" } };
       const res = createRes();
       const next = jest.fn();
@@ -150,11 +149,14 @@ describe("campgrounds controller", () => {
 
       await campgroundsController.getCampground(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false });
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: "Campground not found",
+      });
     });
 
-    it("returns 400 on database error", async () => {
+    it("returns 500 on database error", async () => {
       const req = { params: { id: "bad" } };
       const res = createRes();
       const next = jest.fn();
@@ -163,7 +165,7 @@ describe("campgrounds controller", () => {
 
       await campgroundsController.getCampground(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ success: false });
     });
   });
@@ -202,7 +204,7 @@ describe("campgrounds controller", () => {
       expect(res.json).toHaveBeenCalledWith({ success: true, data: created });
     });
 
-    it("returns 400 when create fails", async () => {
+    it("returns 500 when create fails", async () => {
       const req = { user: { role: "admin" }, body: { name: "Bad Camp" } };
       const res = createRes();
       const next = jest.fn();
@@ -216,7 +218,7 @@ describe("campgrounds controller", () => {
       await campgroundsController.createCampground(req, res, next);
 
       expect(consoleSpy).toHaveBeenCalledWith(err);
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ success: false });
 
       consoleSpy.mockRestore();
@@ -224,7 +226,7 @@ describe("campgrounds controller", () => {
   });
 
   describe("updateCampground", () => {
-    it("returns 400 when campground does not exist", async () => {
+    it("returns 404 when campground does not exist", async () => {
       const req = {
         params: { id: "10" },
         user: { role: "admin", _id: "admin-id" },
@@ -237,8 +239,11 @@ describe("campgrounds controller", () => {
 
       await campgroundsController.updateCampground(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false });
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: "Campground not found",
+      });
     });
 
     it("returns 403 when user is neither admin nor owner", async () => {
@@ -264,6 +269,38 @@ describe("campgrounds controller", () => {
       expect(res.json).toHaveBeenCalledWith({
         success: false,
         message: "Not authorized to update this campground",
+      });
+    });
+
+    it("strips body.owner when a campOwner updates their own campground", async () => {
+      const ownerId = "owner-1";
+      const req = {
+        params: { id: "11b" },
+        user: { role: "campOwner", _id: ownerId },
+        body: { name: "Owner Update", owner: "someone-else" },
+      };
+      const res = createRes();
+      const next = jest.fn();
+      const foundCampground = {
+        owner: { toString: () => ownerId },
+      };
+      const updatedCampground = { _id: "11b", name: "Owner Update" };
+
+      Campground.findById.mockResolvedValue(foundCampground);
+      Campground.findByIdAndUpdate.mockResolvedValue(updatedCampground);
+
+      await campgroundsController.updateCampground(req, res, next);
+
+      expect(Campground.findByIdAndUpdate).toHaveBeenCalledWith(
+        "11b",
+        { name: "Owner Update" },
+        { new: true, runValidators: true },
+      );
+      expect(req.body.owner).toBeUndefined();
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: updatedCampground,
       });
     });
 
@@ -299,7 +336,7 @@ describe("campgrounds controller", () => {
       });
     });
 
-    it("returns 400 on update error", async () => {
+    it("returns 500 on update error", async () => {
       const req = {
         params: { id: "13" },
         user: { role: "admin", _id: "admin-1" },
@@ -312,7 +349,7 @@ describe("campgrounds controller", () => {
 
       await campgroundsController.updateCampground(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ success: false });
     });
   });
@@ -336,7 +373,7 @@ describe("campgrounds controller", () => {
       });
     });
 
-    it("returns 400 when campground is not found", async () => {
+    it("returns 404 when campground is not found", async () => {
       const req = {
         params: { id: "21" },
         user: { role: "admin" },
@@ -350,8 +387,11 @@ describe("campgrounds controller", () => {
 
       expect(Booking.deleteMany).not.toHaveBeenCalled();
       expect(Campground.deleteOne).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ success: false });
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        message: "Campground not found",
+      });
     });
 
     it("deletes campground and its bookings", async () => {
@@ -374,7 +414,7 @@ describe("campgrounds controller", () => {
       expect(res.json).toHaveBeenCalledWith({ success: true, data: {} });
     });
 
-    it("returns 400 on delete failure", async () => {
+    it("returns 500 on delete failure", async () => {
       const req = {
         params: { id: "23" },
         user: { role: "admin" },
@@ -391,7 +431,7 @@ describe("campgrounds controller", () => {
       await campgroundsController.deleteCampground(req, res, next);
 
       expect(consoleSpy).toHaveBeenCalledWith("Delete Campground Error:", err);
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ success: false });
 
       consoleSpy.mockRestore();
